@@ -65,15 +65,26 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ message: 'Email, password, name, and username are required' });
     }
 
-    // Check if user exists
-    const { data: existingUser } = await supabase
+    // Check if email exists
+    const { data: existingEmail } = await supabase
       .from('users')
       .select('id')
-      .or(`email.eq.${email},username.eq.${username}`)
+      .eq('email', email)
       .maybeSingle();
 
-    if (existingUser) {
-      return res.status(400).json({ message: 'Email or username already exists' });
+    if (existingEmail) {
+      return res.status(400).json({ message: 'Email already exists' });
+    }
+
+    // Check if username exists
+    const { data: existingUsername } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+
+    if (existingUsername) {
+      return res.status(400).json({ message: 'Username already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -95,13 +106,16 @@ app.post('/api/auth/register', async (req, res) => {
       .select('id, email, name, username, phone_number, rating, total_rides, is_verified, created_at')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase insert error:', error);
+      return res.status(500).json({ message: 'Failed to create user', error: error.message });
+    }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ user, token });
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({ message: 'Failed to register user' });
+    res.status(500).json({ message: 'Failed to register user', error: error.message });
   }
 });
 
