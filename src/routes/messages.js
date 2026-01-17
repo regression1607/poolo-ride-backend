@@ -10,20 +10,38 @@ router.get('/conversations', authenticateToken, (req, res) => {
   try {
     const conversations = db.prepare(`
       SELECT DISTINCT 
-        CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END as other_user_id,
-        u.name,
-        MAX(m.sent_at) as last_message_time,
+        CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END as partnerId,
+        u.name as partnerName,
+        m.ride_id as rideId,
+        r.pickup_address,
+        r.drop_address,
+        MAX(m.sent_at) as lastMessageTime,
         (SELECT message FROM ride_messages WHERE 
           (sender_id = ? AND receiver_id = u.id) OR (sender_id = u.id AND receiver_id = ?)
           ORDER BY sent_at DESC LIMIT 1) as lastMessage
       FROM ride_messages m
       JOIN users u ON u.id = CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END
+      LEFT JOIN rides r ON r.id = m.ride_id
       WHERE m.sender_id = ? OR m.receiver_id = ?
-      GROUP BY other_user_id
-      ORDER BY last_message_time DESC
+      GROUP BY partnerId
+      ORDER BY lastMessageTime DESC
     `).all(req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id);
 
-    res.json(conversations);
+    // Format response with route info
+    const formatted = conversations.map(conv => ({
+      id: `${conv.rideId}-${conv.partnerId}`,
+      partnerId: conv.partnerId,
+      partnerName: conv.partnerName,
+      rideId: conv.rideId,
+      route: conv.pickup_address && conv.drop_address 
+        ? `${conv.pickup_address} → ${conv.drop_address}` 
+        : 'Unknown Route',
+      lastMessage: conv.lastMessage,
+      lastMessageTime: conv.lastMessageTime,
+      unreadCount: 0
+    }));
+
+    res.json(formatted);
   } catch (error) {
     console.error('Get conversations error:', error);
     res.status(500).json({ message: 'Failed to get conversations' });
