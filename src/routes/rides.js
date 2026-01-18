@@ -98,7 +98,7 @@ router.get('/:id', authenticateToken, (req, res) => {
 // Create ride
 router.post('/', authenticateToken, (req, res) => {
   try {
-    const { pickup_address, drop_address, pickup_time, total_seats, available_seats, vehicle_type, price_per_seat, description } = req.body;
+    const { pickup_address, drop_address, pickup_time, total_seats, available_seats, vehicle_type, price_per_seat, description, pickup_latitude, pickup_longitude, drop_latitude, drop_longitude } = req.body;
 
     if (!pickup_address || !drop_address || !pickup_time || !total_seats || !vehicle_type || !price_per_seat) {
       return res.status(400).json({ message: 'Missing required fields' });
@@ -106,9 +106,9 @@ router.post('/', authenticateToken, (req, res) => {
 
     const rideId = uuidv4();
     db.prepare(`
-      INSERT INTO rides (id, driver_id, pickup_address, drop_address, pickup_time, total_seats, available_seats, vehicle_type, price_per_seat, description)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(rideId, req.user.id, pickup_address, drop_address, pickup_time, total_seats, available_seats || total_seats, vehicle_type, price_per_seat, description || null);
+      INSERT INTO rides (id, driver_id, pickup_address, drop_address, pickup_time, total_seats, available_seats, vehicle_type, price_per_seat, description, pickup_latitude, pickup_longitude, drop_latitude, drop_longitude)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(rideId, req.user.id, pickup_address, drop_address, pickup_time, total_seats, available_seats || total_seats, vehicle_type, price_per_seat, description || null, pickup_latitude || null, pickup_longitude || null, drop_latitude || null, drop_longitude || null);
 
     const ride = db.prepare('SELECT * FROM rides WHERE id = ?').get(rideId);
     res.status(201).json(ride);
